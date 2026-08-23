@@ -11,6 +11,8 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    free_trials_used = Column(Integer, default=0)
+    has_premium = Column(Boolean, default=False)
 
 
 class Organization(Base):

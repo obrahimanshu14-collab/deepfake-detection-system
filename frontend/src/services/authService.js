@@ -30,3 +30,9 @@ export function isAdmin() {
     return false;
   }
 }
+
+export async function googleLogin(credential) {
+  const response = await api.post("/auth/google", { credential });
+  localStorage.setItem("access_token", response.data.access_token);
+  return response.data;
+}

@@ -20,3 +20,6 @@ class PredictionResponse(BaseModel):
     label: str
     confidence: float
     filename: str
+
+class GoogleLoginRequest(BaseModel):
+    credential: str    

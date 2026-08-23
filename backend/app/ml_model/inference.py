@@ -6,6 +6,7 @@ and the 5-tier REAL/FAKE classification band mapping.
 import cv2
 import numpy as np
 import torch
+from app.ml_model.lipsync import analyze_lipsync
 
 from app.ml_model.face_utils import load_and_align, detect_and_align_face
 from app.ml_model.transforms import eval_transform, IMG_SIZE
@@ -16,9 +17,7 @@ POSSIBLY_REAL_MAX = 0.40
 UNCERTAIN_MAX = 0.60
 POSSIBLY_FAKE_MAX = 0.85
 
-ENSEMBLE_WEIGHTS = {"cnn": 0.95, "rppg": 0.05}
-
-
+ENSEMBLE_WEIGHTS = {"cnn": 0.90, "rppg": 0.05, "lipsync": 0.05}
 def classify_probability(fake_prob: float) -> str:
     if fake_prob < REAL_MAX:
         return "REAL"
@@ -100,9 +99,13 @@ def predict_video(
 
     cnn_fake_prob = float(np.mean(frame_probs))
     rppg_result = analyze_video(filepath)
+    lipsync_result = analyze_lipsync(filepath)
+    lipsync_fake_signal = 1.0 - lipsync_result["sync_score"]
     rppg_fake_signal = 1.0 - rppg_result["authenticity_score"]
     final_fake_prob = (
-        ENSEMBLE_WEIGHTS["cnn"] * cnn_fake_prob + ENSEMBLE_WEIGHTS["rppg"] * rppg_fake_signal
+        ENSEMBLE_WEIGHTS["cnn"] * cnn_fake_prob
+        + ENSEMBLE_WEIGHTS["rppg"] * rppg_fake_signal
+        + ENSEMBLE_WEIGHTS["lipsync"] * lipsync_fake_signal
     )
 
     return {
@@ -111,9 +114,10 @@ def predict_video(
         "real_percent": round((1 - final_fake_prob) * 100, 1),
         "fake_percent": round(final_fake_prob * 100, 1),
         "frames_analyzed": len(frame_probs),
-        "signals": {
+                "signals": {
             "cnn_fake_probability": round(cnn_fake_prob, 4),
             "rppg_authenticity_score": rppg_result["authenticity_score"],
             "rppg_estimated_bpm": rppg_result["estimated_bpm"],
+            "lipsync_score": lipsync_result["sync_score"],
         },
     }

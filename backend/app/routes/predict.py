@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
 from app.database.models import Prediction, User
-from app.auth_utils import get_current_user
+from app.auth_utils import get_current_user, check_and_consume_trial
 from app.ml_model.inference import predict_image, predict_video
 from app.ml_model.model import load_trained_model
 from app.ml_model.audio_model import AudioDeepfakeDetector
@@ -43,8 +43,12 @@ def get_audio_model():
 
 @router.post("/image")
 async def predict_image_endpoint(
-    file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    check_and_consume_trial(current_user, db)
+
     model = get_model()
     suffix = Path(file.filename).suffix or ".jpg"
     fd, tmp_path = tempfile.mkstemp(suffix=suffix)
@@ -74,8 +78,12 @@ async def predict_image_endpoint(
 
 @router.post("/video")
 async def predict_video_endpoint(
-    file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    check_and_consume_trial(current_user, db)
+
     model = get_model()
     suffix = Path(file.filename).suffix or ".mp4"
     fd, tmp_path = tempfile.mkstemp(suffix=suffix)
@@ -106,8 +114,12 @@ async def predict_video_endpoint(
 
 @router.post("/audio")
 async def predict_audio_endpoint(
-    file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    check_and_consume_trial(current_user, db)
+
     model = get_audio_model()
     suffix = Path(file.filename).suffix or ".wav"
     fd, tmp_path = tempfile.mkstemp(suffix=suffix)

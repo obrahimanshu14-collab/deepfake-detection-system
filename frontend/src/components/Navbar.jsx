@@ -3,41 +3,40 @@ import { logout, isLoggedIn, isAdmin } from "../services/authService";
 
 function Navbar() {
   const navigate = useNavigate();
+  function handleLogout() { logout(); navigate("/login"); }
 
-  function handleLogout() {
-    logout();
-    navigate("/login");
-  }
+  const linkStyle = "font-mono-label text-xs uppercase text-ink/60 hover:text-signal transition-colors";
 
   return (
-    <nav style={styles.nav}>
-      <Link to="/" style={styles.brand}>Deepfake Detector</Link>
-      <div style={styles.links}>
+    <nav className="flex justify-between items-center px-8 py-5 bg-white border-b border-ink/10">
+      <Link to="/" className="flex items-center gap-2">
+        <span className="w-7 h-7 rounded-sm bg-signal flex items-center justify-center">
+          <span className="w-3 h-0.5 bg-white" />
+        </span>
+        <span className="font-display font-semibold text-lg tracking-tight">Veritas</span>
+      </Link>
+      <div className="flex gap-7 items-center">
         {isLoggedIn() ? (
           <>
-            <Link to="/dashboard" style={styles.link}>Check Image</Link>
-            <Link to="/live" style={styles.link}>Live Detection</Link>
-            <Link to="/history" style={styles.link}>History</Link>
-            {isAdmin() && <Link to="/admin" style={styles.link}>Admin</Link>}
-            <button onClick={handleLogout} style={styles.logoutButton}>Logout</button>
+            <Link to="/dashboard" className={linkStyle}>Check</Link>
+            <Link to="/live" className={linkStyle}>Live</Link>
+            <Link to="/history" className={linkStyle}>History</Link>
+            {isAdmin() && <Link to="/admin" className={linkStyle}>Admin</Link>}
+            <button onClick={handleLogout} className="font-mono-label text-xs uppercase border border-ink/20 px-4 py-2 rounded-sm hover:border-signal hover:text-signal transition-colors">
+              Logout
+            </button>
           </>
         ) : (
           <>
-            <Link to="/login" style={styles.link}>Login</Link>
-            <Link to="/signup" style={styles.link}>Sign Up</Link>
+            <Link to="/login" className={linkStyle}>Login</Link>
+            <Link to="/signup" className="font-mono-label text-xs uppercase bg-signal text-white px-4 py-2 rounded-sm hover:bg-signal-dark transition-colors">
+              Sign Up
+            </Link>
           </>
         )}
       </div>
     </nav>
   );
 }
-
-const styles = {
-  nav: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 30px", borderBottom: "1px solid #eee" },
-  brand: { fontWeight: "bold", fontSize: "1.1rem", textDecoration: "none", color: "#111" },
-  links: { display: "flex", gap: "18px", alignItems: "center" },
-  link: { textDecoration: "none", color: "#2563eb" },
-  logoutButton: { padding: "6px 14px", backgroundColor: "#fff", border: "1px solid #ccc", borderRadius: "6px", cursor: "pointer" },
-};
 
 export default Navbar;

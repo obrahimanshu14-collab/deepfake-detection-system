@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage";
 import HistoryPage from "./pages/HistoryPage";
 import LiveDetectionPage from "./pages/LiveDetectionPage";
 import AdminPage from "./pages/AdminPage";
+import UpgradePage from "./pages/UpgradePage";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/live" element={<LiveDetectionPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/upgrade" element={<UpgradePage />} />
       </Routes>
     </BrowserRouter>
   );

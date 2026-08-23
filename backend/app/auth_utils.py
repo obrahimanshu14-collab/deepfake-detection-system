@@ -8,7 +8,11 @@ from sqlalchemy.orm import Session
 from app.database.connection import get_db
 from app.database.models import User
 
-SECRET_KEY = "change-this-to-a-random-secret-key"
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
@@ -57,3 +61,23 @@ def get_current_admin_user(current_user: User = Depends(get_current_user)) -> Us
     if not current_user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return current_user
+
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
+
+FREE_TRIAL_LIMIT = 5
+
+
+def check_and_consume_trial(current_user: User, db: Session):
+    """Blocks the request once a non-premium user exceeds their free
+    trial count. Called at the start of every /predict/* endpoint."""
+    if current_user.has_premium:
+        return
+    if current_user.free_trials_used >= FREE_TRIAL_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Free trial limit reached. Please upgrade to continue.",
+        )
+    current_user.free_trials_used += 1
+    db.add(current_user)
+    db.commit()

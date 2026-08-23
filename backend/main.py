@@ -1,31 +1,7 @@
 from fastapi import FastAPI
-from app.database.connection import engine, Base
-from app.routes import auth
-
-# Create all tables if they don't already exist (safe to run every time)
-Base.metadata.create_all(bind=engine)
-
-app = FastAPI(title="Deepfake Detection API")
-
-app.include_router(auth.router)
-
-from app.routes import auth, predict, admin
-# ...
-app.include_router(admin.router)
-
-from app.routes import auth, predict, admin, live
-# ...
-app.include_router(live.router)
-
-
-@app.get("/")
-def root():
-    return {"message": "Deepfake Detection API is running"}
-
-from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database.connection import engine, Base
-from app.routes import auth, predict
+from app.routes import auth, predict, admin, live, payment
 
 Base.metadata.create_all(bind=engine)
 
@@ -41,9 +17,11 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(predict.router)
+app.include_router(admin.router)
+app.include_router(live.router)
+app.include_router(payment.router)
 
 
 @app.get("/")
 def root():
     return {"message": "Deepfake Detection API is running"}
-

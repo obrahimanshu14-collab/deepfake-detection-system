@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login } from "../services/authService";
+import { GoogleLogin } from "@react-oauth/google";
+import { login, googleLogin } from "../services/authService";
 
 function LoginPage() {
   const [email, setEmail] = useState("");
@@ -19,42 +20,52 @@ function LoginPage() {
     }
   }
 
+  async function handleGoogleSuccess(credentialResponse) {
+    try {
+      await googleLogin(credentialResponse.credential);
+      navigate("/dashboard");
+    } catch {
+      setError("Google sign-in failed.");
+    }
+  }
+
   return (
-    <div style={styles.container}>
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <h2>Login</h2>
-        {error && <p style={styles.error}>{error}</p>}
+    <div className="max-w-sm mx-auto mt-16 px-6">
+      <p className="font-mono-label text-xs uppercase text-signal mb-2 text-center">Welcome Back</p>
+      <h2 className="font-display text-2xl font-semibold text-center mb-6">Login</h2>
+
+      <div className="flex justify-center mb-4">
+        <GoogleLogin onSuccess={handleGoogleSuccess} onError={() => setError("Google sign-in failed.")} />
+      </div>
+
+      <div className="flex items-center gap-3 mb-4 font-mono-label text-[11px] uppercase text-ink/30">
+        <div className="flex-1 h-px bg-ink/10" /> Or <div className="flex-1 h-px bg-ink/10" />
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        {error && <p className="text-verdict-fake text-sm">{error}</p>}
         <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={styles.input}
+          type="email" placeholder="Email" value={email}
+          onChange={(e) => setEmail(e.target.value)} required
+          className="border border-ink/20 rounded-sm px-4 py-2.5 text-sm"
         />
         <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          style={styles.input}
+          type="password" placeholder="Password" value={password}
+          onChange={(e) => setPassword(e.target.value)} required
+          className="border border-ink/20 rounded-sm px-4 py-2.5 text-sm"
         />
-        <button type="submit" style={styles.button}>Login</button>
-        <p>
-          Don&apost have an account? <a href="/signup">Sign up</a>
+        <button
+          type="submit"
+          className="bg-signal text-white rounded-sm py-2.5 font-medium hover:bg-signal-dark transition-colors"
+        >
+          Login
+        </button>
+        <p className="text-center text-sm text-ink/50">
+          Don&apos;t have an account? <a href="/signup" className="text-signal font-medium">Sign up</a>
         </p>
       </form>
     </div>
   );
 }
-
-const styles = {
-  container: { display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" },
-  form: { display: "flex", flexDirection: "column", gap: "12px", width: "320px" },
-  input: { padding: "10px", fontSize: "1rem", border: "1px solid #ccc", borderRadius: "6px" },
-  button: { padding: "10px", fontSize: "1rem", backgroundColor: "#2563eb", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" },
-  error: { color: "red", fontSize: "0.9rem" },
-};
 
 export default LoginPage;
