@@ -1,76 +1,67 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import { isAdmin } from "../services/authService";
 
 function AdminPage() {
-  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let active = true;
     if (!isAdmin()) {
-      navigate("/dashboard");
-      return;
+      setError("You do not have administrator access.");
+      setStats(null);
+      return undefined;
     }
-    async function fetchData() {
-      try {
-        const [statsRes, usersRes] = await Promise.all([
-          api.get("/admin/stats"),
-          api.get("/admin/users"),
-        ]);
+    Promise.all([api.get("/admin/stats"), api.get("/admin/users")])
+      .then(([statsRes, usersRes]) => {
+        if (!active) return;
         setStats(statsRes.data);
         setUsers(usersRes.data);
-      } catch (err) {
-        setError(err.response?.data?.detail || "Could not load admin data.");
-      }
-    }
-    fetchData();
-  }, [navigate]);
+      })
+      .catch((err) => { if (active) setError(err.response?.data?.detail || "Could not load admin data."); });
+    return () => { active = false; };
+  }, []);
 
-  if (error) return <p style={{ padding: "40px", color: "red" }}>{error}</p>;
-  if (!stats) return <p style={{ padding: "40px" }}>Loading...</p>;
+  const totalTypes = Object.values(stats?.type_breakdown || {}).reduce((sum, n) => sum + n, 0) || 1;
+  const totalLabels = Object.values(stats?.label_breakdown || {}).reduce((sum, n) => sum + n, 0) || 1;
+  const activeUsers = useMemo(() => users.filter((user) => user.prediction_count > 0).length, [users]);
+
+  if (error && !stats) return <main className="app-shell"><div className="inline-error">{error}</div></main>;
+  if (!stats) return <main className="app-shell"><div className="empty-panel"><strong>Loading operations console…</strong><p>Fetching system analytics.</p></div></main>;
 
   return (
-    <div style={{ padding: "40px", maxWidth: "800px", margin: "0 auto" }}>
-      <h1>Admin Console</h1>
-      <div style={styles.statsGrid}>
-        <div style={styles.statCard}><h3>{stats.total_users}</h3><p>Total Users</p></div>
-        <div style={styles.statCard}><h3>{stats.total_predictions}</h3><p>Total Predictions</p></div>
-      </div>
+    <main className="app-shell">
+      <header className="page-app-head">
+        <div><span className="eyebrow">OPERATIONS</span><h1>Admin command center.</h1><p>Monitor platform activity, media mix and user adoption from one operational view.</p></div>
+        <span className="workspace-badge"><span className="status-dot" /> Admin access</span>
+      </header>
 
-      <h2 style={{ marginTop: "30px" }}>Label Breakdown</h2>
-      <ul>{Object.entries(stats.label_breakdown).map(([label, count]) => <li key={label}>{label}: {count}</li>)}</ul>
+      <section className="admin-stats">
+        <div className="admin-stat"><span>TOTAL USERS</span><strong>{stats.total_users}</strong></div>
+        <div className="admin-stat"><span>TOTAL ANALYSES</span><strong>{stats.total_predictions}</strong></div>
+        <div className="admin-stat"><span>ACTIVE USERS</span><strong>{activeUsers}</strong></div>
+        <div className="admin-stat"><span>MEDIA EVENTS</span><strong>{totalTypes}</strong></div>
+      </section>
 
-      <h2 style={{ marginTop: "30px" }}>Type Breakdown</h2>
-      <ul>{Object.entries(stats.type_breakdown).map(([type, count]) => <li key={type}>{type}: {count}</li>)}</ul>
+      <section className="admin-grid">
+        <div className="breakdown"><span className="card-kicker">VERDICTS</span><h2>Outcome distribution</h2>
+          {Object.entries(stats.label_breakdown).map(([label, count]) => <div className="breakdown-row" key={label}><span>{label}</span><div className="breakdown-bar"><i style={{ width: `${(count / totalLabels) * 100}%` }} /></div><strong>{count}</strong></div>)}
+        </div>
+        <div className="breakdown"><span className="card-kicker">MEDIA MIX</span><h2>Analysis volume</h2>
+          {Object.entries(stats.type_breakdown).map(([type, count]) => <div className="breakdown-row" key={type}><span>{type}</span><div className="breakdown-bar"><i style={{ width: `${(count / totalTypes) * 100}%` }} /></div><strong>{count}</strong></div>)}
+        </div>
+      </section>
 
-      <h2 style={{ marginTop: "30px" }}>Users</h2>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr><th style={styles.th}>Email</th><th style={styles.th}>Admin</th><th style={styles.th}>Predictions</th><th style={styles.th}>Joined</th></tr>
-        </thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.id}>
-              <td style={styles.td}>{u.email}</td>
-              <td style={styles.td}>{u.is_admin ? "Yes" : "No"}</td>
-              <td style={styles.td}>{u.prediction_count}</td>
-              <td style={styles.td}>{new Date(u.created_at).toLocaleDateString()}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+      <section className="admin-card">
+        <div style={{ padding: "22px 24px", borderBottom: "1px solid var(--line)" }}><span className="card-kicker">USER DIRECTORY</span><h2 style={{ margin: "6px 0 0" }}>Accounts and activity</h2></div>
+        <div className="table-wrap">
+          <table className="product-table"><thead><tr><th>ACCOUNT</th><th>ROLE</th><th>ANALYSES</th><th>JOINED</th></tr></thead><tbody>{users.map((u) => <tr key={u.id}><td><strong>{u.email}</strong></td><td><span className={u.is_admin ? "badge badge-neutral" : "badge badge-success"}>{u.is_admin ? "Admin" : "User"}</span></td><td>{u.prediction_count}</td><td>{new Date(u.created_at).toLocaleDateString()}</td></tr>)}</tbody></table>
+        </div>
+      </section>
+    </main>
   );
 }
-
-const styles = {
-  statsGrid: { display: "flex", gap: "20px" },
-  statCard: { flex: 1, padding: "20px", border: "1px solid #ddd", borderRadius: "8px", textAlign: "center" },
-  th: { textAlign: "left", borderBottom: "2px solid #ddd", padding: "8px" },
-  td: { borderBottom: "1px solid #eee", padding: "8px" },
-};
 
 export default AdminPage;
