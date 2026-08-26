@@ -12,8 +12,15 @@ export async function login(email, password) {
   return response.data;
 }
 
+export async function googleAuth(credential) {
+  const response = await api.post("/auth/google", { credential });
+  localStorage.setItem("access_token", response.data.access_token);
+  return response.data;
+}
+
 export function logout() {
   localStorage.removeItem("access_token");
+  localStorage.removeItem("is_admin");
 }
 
 export function isLoggedIn() {
