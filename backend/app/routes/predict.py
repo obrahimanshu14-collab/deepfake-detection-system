@@ -16,8 +16,9 @@ from app.ml_model.model import load_trained_model
 
 router = APIRouter(prefix="/predict", tags=["Prediction"])
 
-CHECKPOINT_PATH = "models/best_model.pt"
-AUDIO_CHECKPOINT_PATH = "models/best_audio_model.pt"
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+CHECKPOINT_PATH = BACKEND_DIR / "models" / "best_model.pt"
+AUDIO_CHECKPOINT_PATH = BACKEND_DIR / "models" / "best_audio_model.pt"
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_VIDEO_BYTES = 200 * 1024 * 1024
@@ -34,13 +35,17 @@ _audio_model = None
 def get_model():
     global _model
     if _model is None:
-        _model = load_trained_model(CHECKPOINT_PATH)
+        if not CHECKPOINT_PATH.exists():
+            raise RuntimeError(f"Image model checkpoint not found: {CHECKPOINT_PATH}")
+        _model = load_trained_model(str(CHECKPOINT_PATH))
     return _model
 
 
 def get_audio_model():
     global _audio_model
     if _audio_model is None:
+        if not AUDIO_CHECKPOINT_PATH.exists():
+            raise RuntimeError(f"Audio model checkpoint not found: {AUDIO_CHECKPOINT_PATH}")
         _audio_model = AudioDeepfakeDetector(pretrained=False)
         state_dict = torch.load(AUDIO_CHECKPOINT_PATH, map_location="cpu")
         _audio_model.load_state_dict(state_dict)
