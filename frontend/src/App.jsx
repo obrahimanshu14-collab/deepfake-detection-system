@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import SignupPage from "./pages/SignupPage";
@@ -25,16 +26,15 @@ function App() {
         <Route path="/security" element={<SecurityPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/login" element={<LoginPage />} />
-
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/live" element={<LiveDetectionPage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Route>
-
         <Route path="*" element={<LandingPage />} />
       </Routes>
+      <Footer />
     </BrowserRouter>
   );
 }
