@@ -10,34 +10,37 @@ function Navbar() {
   }
 
   return (
-    <nav style={styles.nav}>
-      <Link to="/" style={styles.brand}>Deepfake Detector</Link>
-      <div style={styles.links}>
+    <nav className="site-nav">
+      <Link to="/" className="brand-mark">
+        <span className="brand-icon">D</span>
+        <span>Deepfake Detector</span>
+      </Link>
+
+      <div className="nav-links public-links">
+        <Link to="/technology">Technology</Link>
+        <Link to="/how-it-works">How it works</Link>
+        <Link to="/research">Research</Link>
+        <Link to="/security">Security</Link>
+      </div>
+
+      <div className="nav-links account-links">
         {isLoggedIn() ? (
           <>
-            <Link to="/dashboard" style={styles.link}>Check Image</Link>
-            <Link to="/live" style={styles.link}>Live Detection</Link>
-            <Link to="/history" style={styles.link}>History</Link>
-            {isAdmin() && <Link to="/admin" style={styles.link}>Admin</Link>}
-            <button onClick={handleLogout} style={styles.logoutButton}>Logout</button>
+            <Link to="/dashboard">Analyze</Link>
+            <Link to="/live">Live</Link>
+            <Link to="/history">History</Link>
+            {isAdmin() && <Link to="/admin">Admin</Link>}
+            <button onClick={handleLogout} className="nav-button">Logout</button>
           </>
         ) : (
           <>
-            <Link to="/login" style={styles.link}>Login</Link>
-            <Link to="/signup" style={styles.link}>Sign Up</Link>
+            <Link to="/login">Login</Link>
+            <Link to="/signup" className="nav-cta">Get started</Link>
           </>
         )}
       </div>
     </nav>
   );
 }
-
-const styles = {
-  nav: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 30px", borderBottom: "1px solid #eee" },
-  brand: { fontWeight: "bold", fontSize: "1.1rem", textDecoration: "none", color: "#111" },
-  links: { display: "flex", gap: "18px", alignItems: "center" },
-  link: { textDecoration: "none", color: "#2563eb" },
-  logoutButton: { padding: "6px 14px", backgroundColor: "#fff", border: "1px solid #ccc", borderRadius: "6px", cursor: "pointer" },
-};
 
 export default Navbar;
