@@ -12,7 +12,7 @@ if not DATABASE_URL:
         "DATABASE_URL is not configured. Add it to backend/.env before starting the API."
     )
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
