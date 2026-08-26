@@ -1,4 +1,5 @@
-"""Train the deepfake detector."""
+"""Train the deepfake detector and evaluate the held-out test split."""
+import json
 import random
 import sys
 from pathlib import Path
@@ -8,6 +9,15 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -21,6 +31,8 @@ def set_seed(seed: int = config.SEED):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 def count_parameters(model):
@@ -75,18 +87,90 @@ def run_epoch(model, loader, criterion, optimizer=None):
     return total_loss / total, correct / total
 
 
+def evaluate_test_set(model, loader, dataframe):
+    """Evaluate the untouched test split and persist detailed baseline metrics."""
+    model.eval()
+    all_probs = []
+    all_labels = []
+
+    with torch.no_grad():
+        for images, labels in tqdm(loader, desc="Test", leave=False):
+            images = images.to(config.DEVICE)
+            logits = model(images)
+            probs = torch.sigmoid(logits).detach().cpu().numpy().reshape(-1)
+            all_probs.extend(probs.tolist())
+            all_labels.extend(labels.numpy().reshape(-1).astype(int).tolist())
+
+    y_true = np.asarray(all_labels, dtype=int)
+    y_prob = np.asarray(all_probs, dtype=float)
+    y_pred = (y_prob >= 0.5).astype(int)
+
+    metrics = {
+        "threshold": 0.5,
+        "num_test_samples": int(len(y_true)),
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "precision": float(precision_score(y_true, y_pred, zero_division=0)),
+        "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+        "f1": float(f1_score(y_true, y_pred, zero_division=0)),
+    }
+
+    if len(np.unique(y_true)) == 2:
+        metrics["roc_auc"] = float(roc_auc_score(y_true, y_prob))
+    else:
+        metrics["roc_auc"] = None
+
+    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
+    metrics["confusion_matrix"] = {
+        "REAL": {"REAL": int(cm[0, 0]), "FAKE": int(cm[0, 1])},
+        "FAKE": {"REAL": int(cm[1, 0]), "FAKE": int(cm[1, 1])},
+    }
+
+    report = classification_report(
+        y_true,
+        y_pred,
+        labels=[0, 1],
+        target_names=["REAL", "FAKE"],
+        output_dict=True,
+        zero_division=0,
+    )
+    metrics["classification_report"] = report
+
+    predictions = dataframe.copy()
+    predictions["fake_probability"] = y_prob
+    predictions["predicted_label"] = np.where(y_pred == 1, "FAKE", "REAL")
+    predictions.to_csv(config.LOGS_DIR / "test_predictions.csv", index=False)
+
+    with open(config.LOGS_DIR / "test_metrics.json", "w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2)
+
+    print("\n===== HELD-OUT TEST RESULTS =====")
+    print(f"Samples   : {metrics['num_test_samples']}")
+    print(f"Accuracy  : {metrics['accuracy']:.4f}")
+    print(f"Precision : {metrics['precision']:.4f}")
+    print(f"Recall    : {metrics['recall']:.4f}")
+    print(f"F1        : {metrics['f1']:.4f}")
+    print(f"ROC-AUC   : {metrics['roc_auc'] if metrics['roc_auc'] is not None else 'N/A'}")
+    print("Confusion matrix [REAL, FAKE]:")
+    print(cm)
+    print(f"\nDetailed metrics: {config.LOGS_DIR / 'test_metrics.json'}")
+    print(f"Predictions     : {config.LOGS_DIR / 'test_predictions.csv'}")
+
+    return metrics
+
+
 def main():
     set_seed()
 
     if not config.MANIFEST_PATH.exists():
-        print(f"Manifest not found at {config.MANIFEST_PATH}. Run data_manifest.py first.")
+        print(f"Manifest not found at {config.MANIFEST_PATH}. Run data_menifest.py first.")
         sys.exit(1)
 
     df = pd.read_csv(config.MANIFEST_PATH)
     train_df = df[df["assigned_split"] == "train"].reset_index(drop=True)
     val_df = df[df["assigned_split"] == "val"].reset_index(drop=True)
+    test_df = df[df["assigned_split"] == "test"].reset_index(drop=True)
 
-    print(f"Train: {len(train_df)}  Val: {len(val_df)}")
+    print(f"Train: {len(train_df)}  Val: {len(val_df)}  Test: {len(test_df)}")
 
     train_loader = DataLoader(
         FaceDataset(train_df, transform=train_transform), batch_size=config.BATCH_SIZE,
@@ -94,6 +178,10 @@ def main():
     )
     val_loader = DataLoader(
         FaceDataset(val_df, transform=eval_transform), batch_size=config.BATCH_SIZE,
+        shuffle=False, num_workers=config.NUM_WORKERS,
+    )
+    test_loader = DataLoader(
+        FaceDataset(test_df, transform=eval_transform), batch_size=config.BATCH_SIZE,
         shuffle=False, num_workers=config.NUM_WORKERS,
     )
 
@@ -138,6 +226,15 @@ def main():
             break
 
     pd.DataFrame(history).to_csv(config.LOGS_DIR / "training_history.csv", index=False)
+
+    # Evaluate the checkpoint selected using validation loss, never the test set.
+    if not config.CHECKPOINT_PATH.exists():
+        print(f"Best checkpoint not found at {config.CHECKPOINT_PATH}; skipping test evaluation.")
+        sys.exit(1)
+
+    model.load_state_dict(torch.load(config.CHECKPOINT_PATH, map_location=config.DEVICE))
+    evaluate_test_set(model, test_loader, test_df)
+
     print(f"\nTraining complete. Best model at: {config.CHECKPOINT_PATH}")
 
 
