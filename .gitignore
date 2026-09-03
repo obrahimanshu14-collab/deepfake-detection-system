@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+.env
+
+node_modules/
+dist/
+
+backend/data/raw/
+backend/data/processed/
+backend/data/external_test/
+backend/data/external_test_video/
+
+backend/logs/
+backend/data/uploads/
