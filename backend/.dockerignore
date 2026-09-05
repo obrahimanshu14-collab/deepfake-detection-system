@@ -1,0 +1,13 @@
+.env
+.env.*
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+logs/
+data/raw/
+data/processed/
+data/external_test/
+data/external_test_video/
+data/uploads/
+.git/
