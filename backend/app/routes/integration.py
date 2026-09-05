@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
@@ -80,7 +79,7 @@ def _save_api_prediction(
     result: dict,
     duration=None,
 ):
-    # Developer API calls intentionally do not retain the raw uploaded media.
+    # Developer API calls intentionally do not retain raw uploaded media.
     prediction = Prediction(
         user_id=None,
         api_key_id=api_key.id,
