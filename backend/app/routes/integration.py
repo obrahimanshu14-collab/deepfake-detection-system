@@ -26,13 +26,28 @@ def api_overview():
         "service": "Veritas Deepfake Detection API",
         "version": "v1",
         "authentication": "Bearer token for provisioning; X-API-Key for developer inference",
+        "documentation": "/docs",
         "endpoints": [
+            "/v1/meta",
             "/v1/api-keys",
             "/v1/predict/image",
             "/v1/predict/video",
             "/v1/predict/audio",
             "/v1/usage",
         ],
+    }
+
+
+@router.get("/meta")
+def api_meta():
+    return {
+        "api_version": "v1",
+        "model": "veritas-mobilenetv2",
+        "modalities": ["image", "video", "audio"],
+        "verdicts": ["REAL", "Possibly Real", "Uncertain", "Possibly Fake", "FAKE"],
+        "api_key_header": os.getenv("API_KEY_HEADER", "X-API-Key"),
+        "daily_request_limit": int(os.getenv("API_DAILY_LIMIT", "100")),
+        "raw_media_retained": False,
     }
 
 
