@@ -1,0 +1,3 @@
+Vercel build fallback: npm ci --include=dev
+
+This file documents the intended install behavior. Vercel should also use frontend/.npmrc and frontend/vercel.json.
