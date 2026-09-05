@@ -3,6 +3,7 @@ import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminPage from "./pages/AdminPage";
 import DashboardPage from "./pages/DashboardPage";
+import DeveloperPage from "./pages/DeveloperPage";
 import HistoryPage from "./pages/HistoryPage";
 import LandingPage from "./pages/LandingPage";
 import LiveDetectionPage from "./pages/LiveDetectionPage";
@@ -21,6 +22,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
         <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+        <Route path="/developers" element={<ProtectedRoute><DeveloperPage /></ProtectedRoute>} />
         <Route path="/live" element={<ProtectedRoute><LiveDetectionPage /></ProtectedRoute>} />
         <Route path="/upgrade" element={<ProtectedRoute><UpgradePage /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
