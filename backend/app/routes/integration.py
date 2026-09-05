@@ -78,9 +78,9 @@ def _save_api_prediction(
     file: UploadFile,
     file_type: str,
     result: dict,
-    path: Path,
     duration=None,
 ):
+    # Developer API calls intentionally do not retain the raw uploaded media.
     prediction = Prediction(
         user_id=None,
         api_key_id=api_key.id,
@@ -88,7 +88,7 @@ def _save_api_prediction(
         file_type=file_type,
         predicted_label=result["label"],
         confidence=float(result.get("raw_fake_probability", 0.5)),
-        file_path=str(path),
+        file_path=None,
         duration_seconds=duration,
     )
     db.add(prediction)
@@ -118,8 +118,9 @@ async def api_predict_image(
     dest = _save_upload(file, "image", api_key.organization_id or 0)
     try:
         result = predict_image(str(dest), model=get_model())
-        prediction = _save_api_prediction(db, api_key, file, "image", result, dest)
+        prediction = _save_api_prediction(db, api_key, file, "image", result)
         _record_usage(db, api_key.id, "/v1/predict/image")
+        dest.unlink(missing_ok=True)
         return _payload(prediction, result, file.filename)
     except HTTPException:
         dest.unlink(missing_ok=True)
@@ -138,8 +139,9 @@ async def api_predict_video(
     dest = _save_upload(file, "video", api_key.organization_id or 0)
     try:
         result = predict_video(str(dest), model=get_model())
-        prediction = _save_api_prediction(db, api_key, file, "video", result, dest)
+        prediction = _save_api_prediction(db, api_key, file, "video", result)
         _record_usage(db, api_key.id, "/v1/predict/video")
+        dest.unlink(missing_ok=True)
         payload = _payload(prediction, result, file.filename)
         payload.update({
             "frames_analyzed": result.get("frames_analyzed", 0),
@@ -163,8 +165,9 @@ async def api_predict_audio(
     dest = _save_upload(file, "audio", api_key.organization_id or 0)
     try:
         result = predict_audio(str(dest), model=get_audio_model())
-        prediction = _save_api_prediction(db, api_key, file, "audio", result, dest)
+        prediction = _save_api_prediction(db, api_key, file, "audio", result)
         _record_usage(db, api_key.id, "/v1/predict/audio")
+        dest.unlink(missing_ok=True)
         return _payload(prediction, result, file.filename)
     except HTTPException:
         dest.unlink(missing_ok=True)
