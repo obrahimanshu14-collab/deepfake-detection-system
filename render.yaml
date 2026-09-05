@@ -3,7 +3,7 @@ services:
     name: veritas-api
     runtime: python
     rootDir: backend
-    branch: development
+    branch: final
     plan: 1c-2g
     healthCheckPath: /healthz
     buildCommand: pip install -r requirements.txt
@@ -19,6 +19,8 @@ services:
         value: 1440
       - key: FREE_TRIAL_LIMIT
         value: 5
+      - key: PERSIST_MEDIA
+        value: false
       - key: DATABASE_URL
         sync: false
       - key: CORS_ORIGINS
@@ -31,12 +33,16 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
+      - key: API_KEY_HEADER
+        value: X-API-Key
+      - key: API_DAILY_LIMIT
+        value: 100
 
   - type: web
     runtime: static
     name: veritas-web
     rootDir: frontend
-    branch: development
+    branch: final
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     envVars:
