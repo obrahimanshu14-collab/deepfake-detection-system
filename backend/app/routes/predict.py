@@ -22,7 +22,9 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 CHECKPOINT_PATH = Path(os.getenv("MODEL_PATH", str(BASE_DIR / "models" / "best_model.pt")))
 AUDIO_CHECKPOINT_PATH = Path(os.getenv("AUDIO_MODEL_PATH", str(BASE_DIR / "models" / "best_audio_model.pt")))
 UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", str(BASE_DIR / "data" / "uploads")))
-UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+PERSIST_MEDIA = os.getenv("PERSIST_MEDIA", "false").strip().lower() == "true"
+if PERSIST_MEDIA:
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_FILE_SIZES = {
     "image": int(os.getenv("MAX_IMAGE_MB", "15")) * 1024 * 1024,
@@ -60,15 +62,18 @@ def get_audio_model():
     return _audio_model
 
 
-
-def _save_upload(file: UploadFile, kind: str, user_id: int) -> Path:
+def _validate_upload(file: UploadFile, kind: str) -> str:
     if not file.filename:
         raise HTTPException(status_code=400, detail="A filename is required")
     suffix = Path(file.filename).suffix.lower()
     if suffix not in ALLOWED_EXTENSIONS[kind]:
         allowed = ", ".join(sorted(ALLOWED_EXTENSIONS[kind]))
         raise HTTPException(status_code=415, detail=f"Unsupported {kind} format. Allowed: {allowed}")
+    return suffix
 
+
+def _save_upload(file: UploadFile, kind: str, user_id: int) -> Path:
+    suffix = _validate_upload(file, kind)
     user_dir = UPLOADS_DIR / str(user_id)
     user_dir.mkdir(parents=True, exist_ok=True)
     dest_path = user_dir / f"{uuid.uuid4().hex}{suffix}"
@@ -93,14 +98,14 @@ def _save_upload(file: UploadFile, kind: str, user_id: int) -> Path:
     return dest_path
 
 
-def _store_prediction(db: Session, user: User, file: UploadFile, file_type: str, result: dict, path: Path, duration=None):
+def _store_prediction(db: Session, user: User, file: UploadFile, file_type: str, result: dict, path: Path | None, duration=None):
     prediction = Prediction(
         user_id=user.id,
         filename=file.filename,
         file_type=file_type,
         predicted_label=result["label"],
         confidence=float(result.get("raw_fake_probability", 0.5)),
-        file_path=str(path),
+        file_path=str(path) if path is not None else None,
         duration_seconds=duration,
     )
     db.add(prediction)
@@ -109,14 +114,22 @@ def _store_prediction(db: Session, user: User, file: UploadFile, file_type: str,
     return prediction
 
 
+def _finalize_media(path: Path) -> Path | None:
+    if PERSIST_MEDIA:
+        return path
+    path.unlink(missing_ok=True)
+    return None
+
+
 @router.post("/image")
 async def predict_image_endpoint(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Reject exhausted trials before spending model CPU on inference.
+    check_and_consume_trial(current_user, db)
     model = get_model()
     dest_path = _save_upload(file, "image", current_user.id)
     try:
         result = predict_image(str(dest_path), model=model)
-        check_and_consume_trial(current_user, db)
-        prediction = _store_prediction(db, current_user, file, "image", result, dest_path)
+        prediction = _store_prediction(db, current_user, file, "image", result, _finalize_media(dest_path))
     except HTTPException:
         dest_path.unlink(missing_ok=True)
         raise
@@ -129,17 +142,18 @@ async def predict_image_endpoint(file: UploadFile = File(...), current_user: Use
         "label": result["label"],
         "real_percent": result["real_percent"],
         "fake_percent": result["fake_percent"],
+        "raw_fake_probability": result.get("raw_fake_probability"),
     }
 
 
 @router.post("/video")
 async def predict_video_endpoint(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    check_and_consume_trial(current_user, db)
     model = get_model()
     dest_path = _save_upload(file, "video", current_user.id)
     try:
         result = predict_video(str(dest_path), model=model)
-        check_and_consume_trial(current_user, db)
-        prediction = _store_prediction(db, current_user, file, "video", result, dest_path)
+        prediction = _store_prediction(db, current_user, file, "video", result, _finalize_media(dest_path))
     except HTTPException:
         dest_path.unlink(missing_ok=True)
         raise
@@ -152,6 +166,7 @@ async def predict_video_endpoint(file: UploadFile = File(...), current_user: Use
         "label": result["label"],
         "real_percent": result["real_percent"],
         "fake_percent": result["fake_percent"],
+        "raw_fake_probability": result.get("raw_fake_probability"),
         "frames_analyzed": result.get("frames_analyzed", 0),
         "signals": result.get("signals"),
     }
@@ -159,12 +174,12 @@ async def predict_video_endpoint(file: UploadFile = File(...), current_user: Use
 
 @router.post("/audio")
 async def predict_audio_endpoint(file: UploadFile = File(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    check_and_consume_trial(current_user, db)
     model = get_audio_model()
     dest_path = _save_upload(file, "audio", current_user.id)
     try:
         result = predict_audio(str(dest_path), model=model)
-        check_and_consume_trial(current_user, db)
-        prediction = _store_prediction(db, current_user, file, "audio", result, dest_path)
+        prediction = _store_prediction(db, current_user, file, "audio", result, _finalize_media(dest_path))
     except HTTPException:
         dest_path.unlink(missing_ok=True)
         raise
@@ -177,6 +192,7 @@ async def predict_audio_endpoint(file: UploadFile = File(...), current_user: Use
         "label": result["label"],
         "real_percent": result["real_percent"],
         "fake_percent": result["fake_percent"],
+        "raw_fake_probability": result.get("raw_fake_probability"),
     }
 
 
@@ -194,18 +210,21 @@ async def save_live_session(
         raise HTTPException(status_code=400, detail="Invalid live verdict")
     if not 0 <= real_percent <= 100 or not 0 <= fake_percent <= 100:
         raise HTTPException(status_code=400, detail="Invalid confidence values")
+    if abs((real_percent + fake_percent) - 100) > 1.0:
+        raise HTTPException(status_code=400, detail="Confidence values must sum to approximately 100")
     if duration_seconds < 0 or duration_seconds > 3600:
         raise HTTPException(status_code=400, detail="Invalid live session duration")
 
     dest_path = _save_upload(file, "video", current_user.id)
     try:
+        stored_path = _finalize_media(dest_path)
         prediction = Prediction(
             user_id=current_user.id,
             filename=f"Live session ({round(duration_seconds)}s)",
             file_type="live",
             predicted_label=label,
             confidence=fake_percent / 100.0,
-            file_path=str(dest_path),
+            file_path=str(stored_path) if stored_path is not None else None,
             duration_seconds=duration_seconds,
         )
         db.add(prediction)
