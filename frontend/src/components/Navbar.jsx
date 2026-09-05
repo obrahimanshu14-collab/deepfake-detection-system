@@ -35,6 +35,7 @@ function Navbar() {
             <Link to="/dashboard" className={linkStyle}>Check</Link>
             <Link to="/live" className={linkStyle}>Live</Link>
             <Link to="/history" className={linkStyle}>History</Link>
+            <Link to="/developers" className={linkStyle}>API</Link>
             <Link to="/upgrade" className={linkStyle}>Upgrade</Link>
             {admin && <Link to="/admin" className={linkStyle}>Admin</Link>}
             <button onClick={handleLogout} className="font-mono-label text-xs uppercase border border-ink/20 px-4 py-2 rounded-sm hover:border-signal hover:text-signal transition-colors">Logout</button>
@@ -45,6 +46,7 @@ function Navbar() {
         {authenticated ? (
           <>
             <Link to="/dashboard" className={linkStyle}>Check</Link>
+            <Link to="/developers" className={linkStyle}>API</Link>
             <button onClick={handleLogout} className={linkStyle}>Logout</button>
           </>
         ) : (
