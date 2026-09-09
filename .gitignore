@@ -13,3 +13,4 @@ backend/data/external_test_video/
 
 backend/logs/
 backend/data/uploads/
+.venv/

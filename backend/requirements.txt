@@ -84,8 +84,8 @@ starlette==1.4.1
 stringzilla==5.1.1
 sympy==1.14.0
 threadpoolctl==3.6.0
-torch==2.13.0
-torchvision==0.28.0
+torch==2.4.1
+torchvision==0.19.1
 tqdm==4.70.0
 typing-inspection==0.4.2
 typing_extensions==4.16.0
