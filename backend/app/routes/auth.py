@@ -92,3 +92,19 @@ def google_login(data: GoogleLoginRequest, db: Session = Depends(get_db)):
         db.refresh(user)
 
     return {"access_token": _token_for(user)}
+
+
+@router.get("/me")
+def me(current_user: User = Depends(get_current_user)):
+    expires_at = current_user.premium_expires_at
+    active_premium = bool(
+        current_user.has_premium
+        and (expires_at is None or expires_at >= __import__("app.auth_utils", fromlist=["utc_now_naive"]).utc_now_naive())
+    )
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "is_admin": bool(current_user.is_admin),
+        "has_premium": active_premium,
+        "premium_expires_at": expires_at,
+    }
