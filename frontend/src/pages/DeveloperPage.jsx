@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
 
@@ -9,6 +9,9 @@ function DeveloperPage() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [accountLoading, setAccountLoading] = useState(true);
+  const [hasPremium, setHasPremium] = useState(false);
+  const [premiumExpiresAt, setPremiumExpiresAt] = useState(null);
 
   const apiBase = api.defaults.baseURL || "http://127.0.0.1:8000";
   const curl = useMemo(
@@ -19,8 +22,29 @@ function DeveloperPage() {
     [apiBase, apiKey]
   );
 
+  useEffect(() => {
+    let mounted = true;
+    api.get("/auth/me")
+      .then(({ data }) => {
+        if (!mounted) return;
+        setHasPremium(Boolean(data.has_premium));
+        setPremiumExpiresAt(data.premium_expires_at);
+      })
+      .catch(() => {
+        if (mounted) setHasPremium(false);
+      })
+      .finally(() => {
+        if (mounted) setAccountLoading(false);
+      });
+    return () => { mounted = false; };
+  }, []);
+
   async function createKey(event) {
     event.preventDefault();
+    if (!hasPremium) {
+      setError("Developer API access requires an active paid plan.");
+      return;
+    }
     setLoading(true);
     setError("");
     setApiKey("");
@@ -91,11 +115,23 @@ function DeveloperPage() {
               </label>
               {error && <p className="text-sm text-verdict-fake">{error}</p>}
               <button
-                disabled={loading}
+                disabled={loading || accountLoading || !hasPremium}
                 className="w-full bg-signal text-white py-3 rounded-sm font-medium disabled:opacity-50"
               >
-                {loading ? "Provisioning…" : "Generate API Key"}
+                {accountLoading ? "Checking plan…" : loading ? "Provisioning…" : hasPremium ? "Generate API Key" : "Upgrade to unlock API"}
               </button>
+              {!accountLoading && !hasPremium && (
+                <div className="mt-3 border border-ink/10 bg-mist p-4 text-sm text-ink/60">
+                  <p className="font-medium text-ink mb-1">Developer access is a paid feature.</p>
+                  <p>Upgrade your Veritas plan to provision API keys and use the server-side detection API.</p>
+                  <Link to="/upgrade" className="inline-block mt-3 text-signal font-medium">View plans →</Link>
+                </div>
+              )}
+              {!accountLoading && hasPremium && premiumExpiresAt && (
+                <p className="text-xs text-ink/40">
+                  Paid access active until {new Date(premiumExpiresAt).toLocaleDateString()}.
+                </p>
+              )}
             </form>
 
             {apiKey && (
