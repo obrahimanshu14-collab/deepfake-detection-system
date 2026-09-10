@@ -47,6 +47,7 @@ def api_meta():
         "verdicts": ["REAL", "Possibly Real", "Uncertain", "Possibly Fake", "FAKE"],
         "api_key_header": os.getenv("API_KEY_HEADER", "X-API-Key"),
         "daily_request_limit": int(os.getenv("API_DAILY_LIMIT", "100")),
+        "access": "paid_plan_required",
         "raw_media_retained": False,
     }
 
@@ -57,6 +58,17 @@ def create_api_key(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    now = utc_now_naive()
+    premium_active = bool(
+        current_user.has_premium
+        and (current_user.premium_expires_at is None or current_user.premium_expires_at >= now)
+    )
+    if not premium_active and not current_user.is_admin:
+        raise HTTPException(
+            status_code=402,
+            detail="Developer API access requires an active paid plan. Please upgrade to continue.",
+        )
+
     organization = Organization(name=data.organization_name.strip(), plan="api")
     db.add(organization)
     db.flush()
@@ -198,4 +210,5 @@ def api_usage(api_key: ApiKey = Depends(get_api_key_record), db: Session = Depen
         "api_key_id": api_key.id,
         "total_requests": total,
         "daily_limit": int(os.getenv("API_DAILY_LIMIT", "100")),
+        "plan": "api",
     }
