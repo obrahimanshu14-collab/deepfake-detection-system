@@ -7,7 +7,7 @@ from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from sqlalchemy.orm import Session
 
-from app.auth_utils import hash_password, create_access_token, verify_password
+from app.auth_utils import hash_password, create_access_token, verify_password, utc_now_naive
 from app.database.connection import get_db
 from app.database.models import User
 from app.schemas import GoogleLoginRequest, Token, UserLogin, UserSignup
@@ -99,7 +99,7 @@ def me(current_user: User = Depends(get_current_user)):
     expires_at = current_user.premium_expires_at
     active_premium = bool(
         current_user.has_premium
-        and (expires_at is None or expires_at >= __import__("app.auth_utils", fromlist=["utc_now_naive"]).utc_now_naive())
+        and (expires_at is None or expires_at >= utc_now_naive())
     )
     return {
         "id": current_user.id,
