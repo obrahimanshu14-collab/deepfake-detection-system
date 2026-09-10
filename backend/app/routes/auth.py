@@ -7,7 +7,13 @@ from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from sqlalchemy.orm import Session
 
-from app.auth_utils import hash_password, create_access_token, verify_password, utc_now_naive
+from app.auth_utils import (
+    hash_password,
+    create_access_token,
+    verify_password,
+    utc_now_naive,
+    get_current_user,
+)
 from app.database.connection import get_db
 from app.database.models import User
 from app.schemas import GoogleLoginRequest, Token, UserLogin, UserSignup
